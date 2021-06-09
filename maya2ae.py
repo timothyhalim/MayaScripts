@@ -737,11 +737,6 @@ def writeMA(filepath, objects=[], convertToMM=True, convertResolution=(), delete
         cmds.setAttr('defaultResolution.deviceAspectRatio', (camWidth/float(camHeight)))
     
 def writeJSX( data, deleteAfterImport=False ):
-    {
-                            'path': jsxExportPath, 
-                            'start': self.exportStartFrame.value(),
-                            'fps': self.exportFPS.value()
-                        }, 
     compname = os.path.splitext(os.path.basename(data['path']))[0]
     dir = os.path.dirname(data['path'])
 
@@ -753,6 +748,9 @@ var fps = "{fps}"
 """.format(compName=compname, maPath=dir, start=data['start'], fps=data['fps'])
     jsxCmd +="""
 app.beginUndoGroup("Maya2AE");
+
+var aeVersion = app.version;
+aeVersion = parseFloat(aeVersion.substring(0, aeVersion.indexOf("x")));
 
 //RENAME OLD
 for(var index=1; index<=app.project.numItems; index++) { 
@@ -768,8 +766,13 @@ for (var index=1; index <=app.project.numItems; index++) {
     var comp = app.project.item(index);
 
     if (comp.name == compName) {
-        comp.frameRate = fps
-        comp.displayStartTime = (startFrame+0.001)/fps
+        comp.frameRate = fps;
+
+        if (aeVersion >= 17.1) {
+            comp.displayStartFrame = startFrame;
+        } else {
+            comp.displayStartTime = startFrame/fps + 0.00001;
+        }
 
         for (var compIndex=1; compIndex<=comp.numLayers; compIndex++) { 
             var theLayer = comp.layer(compIndex).name.replace("_BakedShape","");
@@ -798,7 +801,7 @@ jsx.remove()
 """
     
     
-    with open(filepath, "w") as jsxFile:
+    with open(data['path'], "w") as jsxFile:
         jsxFile.write(jsxCmd)
 
 #### RUN ####
