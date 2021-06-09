@@ -15,7 +15,7 @@ import os
 import subprocess
 import math
 
-import maya.cmds as cmds
+from maya import cmds, mel
 import maya.OpenMaya as om
 import maya.OpenMayaUI as omui
 
@@ -207,6 +207,20 @@ class MAYA2AE( QMainWindow ):
         self.exportResolutionHeight = QSpinBox()
         for w in [self.exportResolutionLabel, self.exportResolutionWidth, self.exportResolutionDiv, self.exportResolutionHeight]:
             self.exportResolutionLayout.addWidget(w)
+            
+            
+        self.exportFPSLayout = QHBoxLayout()
+        self.exportFPSLabel = QLabel('FPS :')
+        self.exportFPS = QDoubleSpinBox()
+        for w in [self.exportFPSLabel, self.exportFPS]:
+            self.exportFPSLayout.addWidget(w)
+
+        self.exportStartFrameLayout = QHBoxLayout()
+        self.exportStartFrameLabel = QLabel('Start Frame :')
+        self.exportStartFrame = QSpinBox()
+        for w in [self.exportStartFrameLabel, self.exportStartFrame]:
+            self.exportStartFrameLayout.addWidget(w)
+
         self.exportToMM = QCheckBox('Change Units to mm')
         self.deleteUnknown = QCheckBox('Delete Unknown Node')
         self.deleteBaked = QCheckBox('Delete Baked after Export')
@@ -216,7 +230,7 @@ class MAYA2AE( QMainWindow ):
         
         for w in [
             self.exportListLayout, self.exportList, 
-            self.exportPathLayout, self.exportCompLayout,
+            self.exportPathLayout, self.exportCompLayout, self.exportFPSLayout, self.exportStartFrameLayout,
             self.exportResolutionLayout, self.exportToMM, self.deleteUnknown, self.deleteBaked,  self.deleteAfterImport, self.exportButton
         ]:
             try:
@@ -270,6 +284,15 @@ class MAYA2AE( QMainWindow ):
         
         self.exportResolutionWidth.setValue(1920)
         self.exportResolutionHeight.setValue(1080)
+
+        self.exportFPSLabel.setMaximumWidth(70)
+        self.exportFPSLabel.setMinimumWidth(70)
+        self.exportFPS.setValue(mel.eval('float $fps = `currentTimeUnitToFPS`'))
+
+        self.exportStartFrameLabel.setMaximumWidth(70)
+        self.exportStartFrameLabel.setMinimumWidth(70)
+        self.exportStartFrame.setValue(1)
+
         self.exportToMM.setChecked(True)
         self.exportButton.clicked.connect(self.export2ae)
         
@@ -447,7 +470,13 @@ class MAYA2AE( QMainWindow ):
                         convertResolution=(self.exportResolutionWidth.value(), self.exportResolutionHeight.value()), 
                         deleteUnknown=self.deleteUnknown.isChecked() 
                     )
-                    writeJSX( jsxExportPath, deleteAfterImport=self.deleteAfterImport.isChecked() )
+                    writeJSX( {
+                            'path': jsxExportPath, 
+                            'start': self.exportStartFrame.value(),
+                            'fps': self.exportFPS.value()
+                        }, 
+                        deleteAfterImport=self.deleteAfterImport.isChecked() 
+                    )
                     if self.deleteBaked.isChecked():
                         cmds.delete(objectToExport)
                         self.refreshExportList()
@@ -457,7 +486,7 @@ class MAYA2AE( QMainWindow ):
                 if os.path.isfile(jsxExportPath):
                     aeVersion = str(self.AEVersion.currentText())
                     aePath = os.path.join(self.adobeDir, aeVersion, self.aeExe).replace('\\', '/')
-                    print aePath
+                    print (aePath)
                     if aePath:
                         spawnAE(aePath, jsxExportPath)
             except Exception as e:
@@ -512,7 +541,7 @@ def get_object_visibility(object):
 ctx = 'myCtx'
 def createLocOnClick():
     vpX, vpY, _ = cmds.draggerContext(ctx, query=True, anchorPoint=True)
-    # print "Click:", vpX, vpY
+    # print ("Click:", vpX, vpY)
     
     pos = om.MPoint()
     dir = om.MVector()
@@ -556,7 +585,7 @@ def createLocOnClick():
                 None
             )
         except:
-            print "Error reading on", mesh
+            print ("Error reading on", mesh)
             continue
         if intersection:
             x = hitpoint.x
@@ -574,8 +603,8 @@ def createLocOnClick():
                     nearestDistance = distance
     
     cmds.setAttr(cmds.spaceLocator()[0]+'.translate', nearest[0], nearest[1], nearest[2], type="double3")
-    # print "Position:", nearest
-    # print "Distance:", nearestDistance
+    # print ("Position:", nearest)
+    # print ("Distance:", nearestDistance)
 
 def spawnAE(aePath, jsx):
     subprocess.Popen([aePath, '-r', jsx])
@@ -696,7 +725,7 @@ def writeMA(filepath, objects=[], convertToMM=True, convertResolution=(), delete
     # export selection
     cmds.select(objects, r=True)
     filepath = cmds.file (filepath, force=True, options="v=0", typ="mayaAscii", exportSelected=True)
-    print filepath
+    print (filepath)
     cmds.select(currentSelections, r=True)
     
     # restore
@@ -707,40 +736,57 @@ def writeMA(filepath, objects=[], convertToMM=True, convertResolution=(), delete
         cmds.setAttr('defaultResolution.height', camHeight)
         cmds.setAttr('defaultResolution.deviceAspectRatio', (camWidth/float(camHeight)))
     
-def writeJSX( filepath, deleteAfterImport=False ):
-    compname = os.path.splitext(os.path.basename(filepath))[0]
-    dir = os.path.dirname(filepath)
+def writeJSX( data, deleteAfterImport=False ):
+    {
+                            'path': jsxExportPath, 
+                            'start': self.exportStartFrame.value(),
+                            'fps': self.exportFPS.value()
+                        }, 
+    compname = os.path.splitext(os.path.basename(data['path']))[0]
+    dir = os.path.dirname(data['path'])
 
     jsxCmd = """
 var compName = "{compName}"
 var filePath = "{maPath}"
-""".format(compName=compname, maPath=dir)
+var startFrame = "{start}"
+var fps = "{fps}"
+""".format(compName=compname, maPath=dir, start=data['start'], fps=data['fps'])
     jsxCmd +="""
+app.beginUndoGroup("Maya2AE");
+
 //RENAME OLD
-for(var index=1;index<=app.project.numItems;index++) { 
-    var oldComp=app.project.item(index);
+for(var index=1; index<=app.project.numItems; index++) { 
+    var oldComp = app.project.item(index);
     if (oldComp.name == compName)
         {oldComp.name = oldComp.name + "_old_DELETE"; }
 }
 //IMPORT
 app.project.importFile(new ImportOptions(File(filePath+"/"+compName+".ma")));
+
 //RENAME CURRENT
-for (var index =1; index <=app.project.numItems; index++) {
-    var theComp=app.project.item(index);
-    if (theComp.name==compName) {
-        for (var compIndex=1; compIndex<= theComp.numLayers; compIndex++) { 
-            var theLayer = theComp.layer(compIndex).name.replace("_BakedShape","");
+for (var index=1; index <=app.project.numItems; index++) {
+    var comp = app.project.item(index);
+
+    if (comp.name == compName) {
+        comp.frameRate = fps
+        comp.displayStartTime = (startFrame+0.001)/fps
+
+        for (var compIndex=1; compIndex<=comp.numLayers; compIndex++) { 
+            var theLayer = comp.layer(compIndex).name.replace("_BakedShape","");
             var newLayer = theLayer.replace("Null_","");
-            theComp.layer(compIndex).name=newLayer;
+            comp.layer(compIndex).name=newLayer;
         }
     }
-    if (theComp.name=="Solids") { 
-        for (var solidIndex= 1; solidIndex <= theComp.numItems; solidIndex ++) {
-            var theSolid=theComp.item(solidIndex).name.replace("_BakedShape","");
-            theComp.item(solidIndex).name = theSolid
+
+    if (comp.name=="Solids") { 
+        for (var solidIndex= 1; solidIndex <= comp.numItems; solidIndex ++) {
+            var theSolid=comp.item(solidIndex).name.replace("_BakedShape","");
+            comp.item(solidIndex).name = theSolid
         }
     }  
 }
+
+app.endUndoGroup();
 """
     if deleteAfterImport:
         jsxCmd += """
