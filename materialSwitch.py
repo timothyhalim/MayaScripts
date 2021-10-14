@@ -1,5 +1,4 @@
 # Colorize Tool by Timothy Halim
-# Created for technical director test at Lemon Sky
 # 15 June 2021
 #
 # This tool will duplicate the material, remove the textures and replace it with constant, 
