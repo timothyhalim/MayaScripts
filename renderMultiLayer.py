@@ -1,3 +1,10 @@
+'''
+Render Multi Layer
+
+Auto Queuing to render multiple layer in local render
+Currently support vray
+'''
+
 from maya import cmds, mel
 import os, sys
 import multiprocessing

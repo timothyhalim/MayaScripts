@@ -1,7 +1,10 @@
-# TODO:
-# match composition length to baked frame
-# check if composition fps is correct
-# option to delete .jsx and .ma after ae import
+'''
+Maya 2 AE
+
+Tools to send maya camera and null to AE
+Tested on Windows only
+
+'''
 
 try:
     from PySide2.QtGui import *

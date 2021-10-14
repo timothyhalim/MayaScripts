@@ -1,3 +1,11 @@
+'''
+Scripts to export maya camera to fbx
+
+import thisScript  
+run(cameraname, fbxoutputpath)
+'''
+
+
 from maya import cmds, mel
 import os, subprocess
 

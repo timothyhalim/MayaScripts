@@ -1,3 +1,11 @@
+'''
+Testing alembic animation transfer 
+by replacing existing alembic node 
+and reconnecting it 
+since maya alembic node 
+didn't support path change
+'''
+
 rn = 'Box_PUB.ma'
 cachePath = "Box_ANM.abc"
 

@@ -1,3 +1,21 @@
+'''
+FX Helper
+Created to help some friends automate some frequently used command
+
+Util Tab:
+Enable Mesh Selection : Disabling all mesh Drawing Overrides attribute
+Add vray subdiv : Add Vray subdiv to selection
+Set Vray Settings : Set default vray render settings
+Cache Folder : Path to scan the alembic file
+Import Alembic : Import all selected alembic files
+
+Shader Tab:
+Assign White SS : Assign White Surface Shader
+Assign Black SS : Assign Black Surface Shader
+Assign Contact Char SS : Assign Thin Solid AO Shader
+Assign Contact Ground SS : Assign Thick Solid AO Shader
+'''
+
 try:
     from PySide2.QtGui import *
     from PySide2.QtCore import *
@@ -171,7 +189,7 @@ class FXHelper( QDialog ):
         self.fileList = QListWidget(self)
         self.fileList.setSelectionMode(QAbstractItemView.ExtendedSelection)
         
-        self.runBtn = QPushButton("Import")
+        self.runBtn = QPushButton("Import Alembic")
         
         for w in [self.enableMeshSelectionBtn, self.addVraySubdivBtn, self.setVraySettingsBtn,
                   self.filePath, self.fileList, self.runBtn]:
